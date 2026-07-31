@@ -1046,7 +1046,7 @@ function StackCard() {
             'data-floating-no-drag': true
           }),
           $selectedIds.size
-            ? jsx(Button, {
+            ? jsxs(Button, {
                 size: 'xs',
                 variant: 'ghost',
                 onClick: () => {
@@ -1057,7 +1057,13 @@ function StackCard() {
                     $activeStackId.set(null)
                   }
                 },
-                children: `Purge ${$selectedIds.size}`
+                children: [
+                  `Purge ${$selectedIds.size}`,
+                  jsx('span', {
+                    className: 'ml-1 text-[0.55rem] text-(--ui-text-quaternary)',
+                    children: '⌘+click to select'
+                  })
+                ]
               })
             : null
         ]
@@ -1092,7 +1098,8 @@ function StackCard() {
                               'flex items-start gap-1 rounded px-1.5 py-1 text-left text-[0.7rem] transition-colors',
                               selected
                                 ? 'bg-(--chrome-action-hover) text-(--ui-text-secondary)'
-                                : 'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover)'
+                                : 'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover)',
+                              selected ? 'outline outline-1 outline-(--ui-accent)' : ''
                             ),
                             onClick: (e) => {
                               if (e.metaKey || e.ctrlKey) {
@@ -1146,6 +1153,8 @@ function StackCard() {
                         .sort((a, b) => b.updatedAt - a.updatedAt)
                         .map((n, i) => {
                           const selected = $selectedIds.get().has(n.id)
+                          const topic = noteTopic(n, 40)
+                          const sub = noteSubpreview(n, 48)
                           return jsxs(
                             'button',
                             {
@@ -1157,8 +1166,8 @@ function StackCard() {
                                   : 'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover)',
                                 selected ? 'outline outline-1 outline-(--ui-accent)' : ''
                               ),
-                              onClick: () => {
-                                if (typeof event !== 'undefined' && (event.metaKey || event.ctrlKey)) {
+                              onClick: (e) => {
+                                if (e.metaKey || e.ctrlKey) {
                                   const s = new Set($selectedIds.get())
                                   s.has(n.id) ? s.delete(n.id) : s.add(n.id)
                                   $selectedIds.set(s)
@@ -1166,7 +1175,7 @@ function StackCard() {
                                   $activeStackId.set(n.id)
                                 }
                               },
-                              title: `${oneLine(n.body) || noteTopic(n, 40)}${selected ? ' [selected]' : ''}`,
+                              title: `${oneLine(n.body) || topic}${selected ? ' [selected]' : ''}`,
                               children: [
                                 jsx('span', {
                                   className: 'w-3 shrink-0 pt-0.5 text-(--ui-text-quaternary)',
@@ -1177,7 +1186,7 @@ function StackCard() {
                                   children: [
                                     jsx('span', {
                                       className: 'block truncate font-medium text-(--ui-text-secondary)',
-                                      children: noteTopic(n, 40)
+                                      children: topic
                                     }),
                                     sub
                                       ? jsx('span', {
@@ -1316,7 +1325,7 @@ function StackEditor({ noteId }) {
             type: 'button',
             className: 'hover:text-(--ui-text-tertiary)',
             onClick: () => {
-              const keys = /** @type {Array<'classic' | 'soft' | 'ghost'>} */ (Object.keys(TINTS))
+              const keys = /** @type {Array<'classic' | 'soft' | 'ghost' | 'void' | 'relic' | 'gilt'>} */ (Object.keys(TINTS))
               const i = keys.indexOf(note.tint)
               patchNote(noteId, { tint: keys[(i + 1) % keys.length] })
             },
@@ -1331,7 +1340,23 @@ function StackEditor({ noteId }) {
               patchNote(noteId, { sessionId: linking ? sid : null })
             },
             children: note.sessionId ? 'session' : 'global'
-          })
+          }),
+          ...(note.tags || []).map(tag =>
+            jsxs('button', {
+              type: 'button',
+              className: 'rounded border border-(--ui-stroke-secondary) px-1 hover:text-(--ui-text-tertiary)',
+              onClick: () => {
+                patchNote(noteId, { tags: (note.tags || []).filter(t => t !== tag) })
+              },
+              children: [
+                `#${tag}`,
+                jsx('span', {
+                  className: 'ml-1 text-(--ui-text-quaternary)',
+                  children: '×'
+                })
+              ]
+            })
+          )
         ]
       })
     ]
