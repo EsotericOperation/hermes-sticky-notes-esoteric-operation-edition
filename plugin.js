@@ -1828,6 +1828,52 @@ export default {
         }
       },
       {
+        id: 'cmd-pinboard',
+        area: PALETTE_AREA,
+        data: {
+          id: 'eo-stickies.pinboard',
+          label: 'Sticky: Toggle pinboard/grid',
+          keywords: ['sticky', 'pinboard', 'grid', 'masonry'],
+          run: () => $viewMode.set($viewMode.get() === 'stack' ? 'pinboard' : 'stack')
+        }
+      },
+      {
+        id: 'cmd-filter',
+        area: PALETTE_AREA,
+        data: {
+          id: 'eo-stickies.filter',
+          label: 'Sticky: Filter by tag',
+          keywords: ['sticky', 'filter', 'tag'],
+          run: () => {
+            const current = $tagFilter.get() || ''
+            const next = prompt('Filter tags:', current) ?? null
+            $tagFilter.set(next || null)
+          }
+        }
+      },
+      {
+        id: 'cmd-export',
+        area: PALETTE_AREA,
+        data: {
+          id: 'eo-stickies.export',
+          label: 'Sticky: Export notes.json',
+          keywords: ['sticky', 'export', 'json'],
+          run: () => {
+            const src = JSON.stringify(pluginCtx.storage.get(STORAGE_KEY, []))
+            if (!src) return host.notify({ kind: 'error', title: 'Export', message: 'No storage available' })
+            const path = '/Users/ethanwolfe/.hermes/scripts/eo-stickies/notes.json'
+            try {
+              const fs = require('fs')
+              fs.mkdirSync('/Users/ethanwolfe/.hermes/scripts/eo-stickies', { recursive: true })
+              fs.writeFileSync(path, src, 'utf-8')
+              host.notify({ kind: 'info', title: 'Export', message: `Exported to ${path}` })
+            } catch (e) {
+              host.notify({ kind: 'error', title: 'Export', message: String(e) })
+            }
+          }
+        }
+      },
+      {
         id: 'key-new',
         area: KEYBINDS_AREA,
         data: {
@@ -1869,6 +1915,29 @@ export default {
           category: 'EO Stickies',
           defaults: ['mod+shift+g'],
           run: () => $viewMode.set($viewMode.get() === 'stack' ? 'pinboard' : 'stack')
+        }
+      },
+      {
+        id: 'key-export',
+        area: KEYBINDS_AREA,
+        data: {
+          id: 'eo-stickies.export',
+          label: 'Export notes.json',
+          category: 'EO Stickies',
+          defaults: ['mod+shift+e'],
+          run: () => {
+            const src = JSON.stringify(pluginCtx.storage.get(STORAGE_KEY, []))
+            if (!src) return host.notify({ kind: 'error', title: 'Export', message: 'No storage available' })
+            const path = '/Users/ethanwolfe/.hermes/scripts/eo-stickies/notes.json'
+            try {
+              const fs = require('fs')
+              fs.mkdirSync('/Users/ethanwolfe/.hermes/scripts/eo-stickies', { recursive: true })
+              fs.writeFileSync(path, src, 'utf-8')
+              host.notify({ kind: 'info', title: 'Export', message: `Exported to ${path}` })
+            } catch (e) {
+              host.notify({ kind: 'error', title: 'Export', message: String(e) })
+            }
+          }
         }
       }
     ])
