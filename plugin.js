@@ -76,6 +76,12 @@ const $ready = atom(false)
 const $activeStackId = atom(/** @type {string | null} */ (null))
 /** pileId → active note id inside that pile window */
 const $activePileNote = atom(/** @type {Record<string, string>} */ ({}))
+/** 'stack' | 'pinboard' */
+const $viewMode = atom(/** @type {'stack'|'pinboard'} */ ('stack'))
+/** Selected note ids for bulk ops */
+const $selectedIds = atom(/** @type {Set<string>} */ (new Set()))
+/** Active tag filter text or null */
+const $tagFilter = atom(/** @type {string | null} */ (null))
 
 const OVERLAP_MERGE = 0.42
 const MERGE_COOLDOWN_MS = 600
@@ -802,6 +808,28 @@ function timelineText() {
     .join('\n\n')
 }
 
+function pinboardText() {
+  const notes = $notes.get()
+  if (!notes.length) return '(no stickies)'
+  const sorted = notes
+    .slice()
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+  return sorted
+    .map(
+      (n, i) =>
+        `${i + 1}. ${n.title || 'Sticky'} [${n.surface}]\n   ${n.body || '(empty)'}\n   tags=${(n.tags || []).join(',') || '-'}\n   id=${n.id}`
+    )
+    .join('\n\n')
+}
+
+function filteredNotes() {
+  const notes = $notes.get()
+  const tag = $tagFilter.get()
+  if (!tag) return notes
+  const q = tag.toLowerCase()
+  return notes.filter(n => (n.tags || []).some(t => t.toLowerCase().includes(q)))
+}
+
 function disposePane(id) {
   const dispose = paneDisposers.get(id)
   if (!dispose) return
@@ -1003,6 +1031,34 @@ function StackCard() {
                 onClick: stackAll,
                 children: t('stackAll')
               })
+            : null,
+          jsx(Button, {
+            size: 'xs',
+            variant: 'ghost',
+            onClick: () => $viewMode.set($viewMode.get() === 'stack' ? 'pinboard' : 'stack'),
+            children: $viewMode.get() === 'stack' ? 'Grid' : 'Stack'
+          }),
+          jsx('input', {
+            className: 'w-24 border-0 bg-transparent text-[0.65rem] text-(--ui-text-secondary) placeholder:text-(--ui-text-quaternary) outline-none',
+            placeholder: 'tag filter',
+            value: $tagFilter.get() || '',
+            onChange: e => $tagFilter.set(e.target.value || null),
+            'data-floating-no-drag': true
+          }),
+          $selectedIds.size
+            ? jsx(Button, {
+                size: 'xs',
+                variant: 'ghost',
+                onClick: () => {
+                  const ids = $selectedIds.get()
+                  updateNotes(list => list.filter(n => !ids.has(n.id)))
+                  $selectedIds.set(new Set())
+                  if ($activeStackId.get() && ids.has($activeStackId.get())) {
+                    $activeStackId.set(null)
+                  }
+                },
+                children: `Purge ${$selectedIds.size}`
+              })
             : null
         ]
       }),
@@ -1024,87 +1080,139 @@ function StackCard() {
                 children: jsx('div', {
                   className: 'flex flex-col gap-0.5 pr-1',
                   'data-floating-no-drag': true,
-                  children: stacked.map((n, i) => {
-                    const topic = noteTopic(n, 40)
-                    const sub = noteSubpreview(n, 48)
-                    return jsxs(
-                      'button',
-                      {
-                        type: 'button',
-                        className: cn(
-                          'flex items-start gap-1 rounded px-1.5 py-1 text-left text-[0.7rem] transition-colors',
-                          n.id === (active && active.id)
-                            ? 'bg-(--chrome-action-hover) text-(--ui-text-secondary)'
-                            : 'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover)'
-                        ),
-                        onClick: () => $activeStackId.set(n.id),
-                        title: oneLine(n.body) || topic,
-                        children: [
-                          jsx('span', {
-                            className: 'w-3 shrink-0 pt-0.5 text-(--ui-text-quaternary)',
-                            children: String(i + 1)
-                          }),
-                          jsxs('span', {
-                            className: 'min-w-0 flex-1',
+                  children: $viewMode.get() === 'pinboard'
+                    ? filteredNotes()
+                        .filter(n => n.open && sessionOk(n))
+                        .sort((a, b) => b.updatedAt - a.updatedAt)
+                        .map((n, i) => {
+                          const selected = $selectedIds.get().has(n.id)
+                          return jsxs('button', {
+                            type: 'button',
+                            className: cn(
+                              'flex items-start gap-1 rounded px-1.5 py-1 text-left text-[0.7rem] transition-colors',
+                              selected
+                                ? 'bg-(--chrome-action-hover) text-(--ui-text-secondary)'
+                                : 'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover)'
+                            ),
+                            onClick: (e) => {
+                              if (e.metaKey || e.ctrlKey) {
+                                const s = new Set($selectedIds.get())
+                                s.has(n.id) ? s.delete(n.id) : s.add(n.id)
+                                $selectedIds.set(s)
+                              } else {
+                                $activeStackId.set(n.id)
+                              }
+                            },
+                            title: `${n.title || 'Sticky'}${selected ? ' [selected]' : ''}`,
                             children: [
-                              jsx('span', {
-                                className: 'block truncate font-medium text-(--ui-text-secondary)',
-                                children: topic
+                              jsx('input', {
+                                type: 'checkbox',
+                                className: 'mt-1 h-3 w-3',
+                                checked: selected,
+                                onChange: () => {
+                                  const s = new Set($selectedIds.get())
+                                  s.has(n.id) ? s.delete(n.id) : s.add(n.id)
+                                  $selectedIds.set(s)
+                                },
+                                'data-floating-no-drag': true
                               }),
-                              sub
+                              jsxs('span', {
+                                className: 'min-w-0 flex-1',
+                                children: [
+                                  jsx('span', {
+                                    className: 'block truncate font-medium text-(--ui-text-secondary)',
+                                    children: noteTopic(n, 36)
+                                  }),
+                                  noteSubpreview(n, 48)
+                                    ? jsx('span', {
+                                        className: 'block truncate text-[0.62rem] text-(--ui-text-quaternary)',
+                                        children: noteSubpreview(n, 48)
+                                      })
+                                    : null
+                                ]
+                              }),
+                              (n.tags && n.tags.length)
                                 ? jsx('span', {
-                                    className: 'block truncate text-[0.62rem] text-(--ui-text-quaternary)',
-                                    children: sub
+                                    className: 'shrink-0 text-[0.55rem] text-(--ui-text-quaternary)',
+                                    title: n.tags.join(', '),
+                                    children: n.tags.slice(0,2).join('·') + (n.tags.length>2?'…':'')
                                   })
                                 : null
                             ]
-                          }),
-                          n.author === 'agent'
-                            ? jsx(Badge, { size: 'xs', children: 'a' })
-                            : null,
-                          (n.tags && n.tags.length)
-                            ? jsx('span', {
-                                className: 'shrink-0 text-[0.55rem] text-(--ui-text-quaternary)',
-                                title: n.tags.join(', '),
-                                children: n.tags.slice(0,2).join('·') + (n.tags.length>2?'…':'')
-                              })
-                            : null,
-                          jsx(Tip, {
-                            label: t('breakOut'),
-                            children: jsx('span', {
-                              role: 'button',
-                              className:
-                                'shrink-0 px-1 pt-0.5 text-(--ui-text-quaternary) hover:text-(--ui-text-secondary)',
-                              onMouseDown: e => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                              },
-                              onClick: e => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                breakOut(n.id)
-                              },
-                              children: '↗'
-                            })
-                          }),
-                          jsx(Tip, {
-                            label: t('delete'),
-                            children: jsx('span', {
-                              role: 'button',
-                              className:
-                                'shrink-0 px-1 pt-0.5 text-(--ui-text-quaternary) hover:text-(--ui-text-secondary)',
-                              onClick: e => {
-                                e.stopPropagation()
-                                removeNote(n.id)
-                              },
-                              children: '×'
-                            })
                           })
-                        ]
-                      },
-                      n.id
-                    )
-                  })
+                        })
+                    : filteredNotes()
+                        .filter(n => n.open && sessionOk(n))
+                        .sort((a, b) => b.updatedAt - a.updatedAt)
+                        .map((n, i) => {
+                          const selected = $selectedIds.get().has(n.id)
+                          return jsxs(
+                            'button',
+                            {
+                              type: 'button',
+                              className: cn(
+                                'flex items-start gap-1 rounded px-1.5 py-1 text-left text-[0.7rem] transition-colors',
+                                n.id === (active && active.id)
+                                  ? 'bg-(--chrome-action-hover) text-(--ui-text-secondary)'
+                                  : 'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover)',
+                                selected ? 'outline outline-1 outline-(--ui-accent)' : ''
+                              ),
+                              onClick: () => {
+                                if (typeof event !== 'undefined' && (event.metaKey || event.ctrlKey)) {
+                                  const s = new Set($selectedIds.get())
+                                  s.has(n.id) ? s.delete(n.id) : s.add(n.id)
+                                  $selectedIds.set(s)
+                                } else {
+                                  $activeStackId.set(n.id)
+                                }
+                              },
+                              title: `${oneLine(n.body) || noteTopic(n, 40)}${selected ? ' [selected]' : ''}`,
+                              children: [
+                                jsx('span', {
+                                  className: 'w-3 shrink-0 pt-0.5 text-(--ui-text-quaternary)',
+                                  children: String(i + 1)
+                                }),
+                                jsxs('span', {
+                                  className: 'min-w-0 flex-1',
+                                  children: [
+                                    jsx('span', {
+                                      className: 'block truncate font-medium text-(--ui-text-secondary)',
+                                      children: noteTopic(n, 40)
+                                    }),
+                                    sub
+                                      ? jsx('span', {
+                                          className: 'block truncate text-[0.62rem] text-(--ui-text-quaternary)',
+                                          children: sub
+                                        })
+                                      : null
+                                  ]
+                                }),
+                                n.author === 'agent'
+                                  ? jsx(Badge, { size: 'xs', children: 'a' })
+                                  : null,
+                                (n.tags && n.tags.length)
+                                  ? jsx('span', {
+                                      className: 'shrink-0 text-[0.55rem] text-(--ui-text-quaternary)',
+                                      title: n.tags.join(', '),
+                                      children: n.tags.slice(0,2).join('·') + (n.tags.length>2?'…':'')
+                                    })
+                                  : null,
+                                jsx('input', {
+                                  type: 'checkbox',
+                                  className: 'ml-auto h-3 w-3',
+                                  checked: selected,
+                                  onChange: () => {
+                                    const s = new Set($selectedIds.get())
+                                    s.has(n.id) ? s.delete(n.id) : s.add(n.id)
+                                    $selectedIds.set(s)
+                                  },
+                                  'data-floating-no-drag': true
+                                })
+                              ]
+                            },
+                            n.id
+                          )
+                        })
                 })
               }),
               active
@@ -1725,6 +1833,17 @@ export default {
           category: 'EO Stickies',
           defaults: ['mod+shift+t'],
           run: () => host.notify({ kind: 'info', title: 'Timeline', message: timelineText().slice(0,900) })
+        }
+      },
+      {
+        id: 'key-pinboard',
+        area: KEYBINDS_AREA,
+        data: {
+          id: 'eo-stickies.pinboard',
+          label: 'Toggle pinboard/grid view',
+          category: 'EO Stickies',
+          defaults: ['mod+shift+g'],
+          run: () => $viewMode.set($viewMode.get() === 'stack' ? 'pinboard' : 'stack')
         }
       }
     ])
