@@ -1125,7 +1125,7 @@ function StackCard() {
                 ? jsx(ScrollArea, {
                     className: 'flex-1',
                     children: jsx('div', {
-                      className: 'grid grid-cols-2 gap-2 content-start',
+                      className: 'columns-2 gap-2 content-start [&>*]:break-inside-avoid',
                       'data-floating-no-drag': true,
                       children: filteredNotes()
                         .filter(n => n.open && sessionOk(n))
@@ -1135,7 +1135,7 @@ function StackCard() {
                           return jsxs('button', {
                             type: 'button',
                             className: cn(
-                              'flex flex-col gap-1 rounded border border-(--ui-stroke-secondary) p-2 text-left transition-colors',
+                              'flex flex-col gap-1 rounded border border-(--ui-stroke-secondary) p-2 text-left transition-colors mb-2',
                               selected
                                 ? 'bg-(--chrome-action-hover) text-(--ui-text-secondary)'
                                 : 'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover)'
@@ -1187,12 +1187,11 @@ function StackCard() {
                             ]
                           })
                         })
+                    })
                   })
-                )
-              ),
-              active
-                ? jsx(StackEditor, { noteId: active.id })
-                : null
+                : jsx(ScrollArea, {
+                    className: 'max-h-24 shrink-0',
+                    children: jsx('div', {
                       className: 'flex flex-col gap-0.5 pr-1',
                       'data-floating-no-drag': true,
                       children: filteredNotes()
@@ -1269,8 +1268,8 @@ function StackCard() {
                             n.id
                           )
                         })
-                  )
-                )
+                    })
+                  })
               ),
               active
                 ? jsx(StackEditor, { noteId: active.id })
