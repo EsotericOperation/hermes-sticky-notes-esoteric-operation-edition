@@ -1342,6 +1342,12 @@ function StackEditor({ noteId }) {
   const note = notes.find(n => n.id === noteId)
   const [draft, setDraft] = useState(note?.body || '')
   const timer = useRef(null)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(false)
+    const t = setTimeout(() => setMounted(true), 20)
+    return () => clearTimeout(t)
+  }, [noteId])
 
   useEffect(() => {
     setDraft(note?.body || '')
@@ -1365,7 +1371,7 @@ function StackEditor({ noteId }) {
     : t('titlePh')
 
   return jsxs('div', {
-    className: 'flex min-h-0 flex-1 flex-col gap-1.5 rounded-md border border-(--ui-stroke-secondary) p-2',
+    className: cn('flex min-h-0 flex-1 flex-col gap-1.5 rounded-md border border-(--ui-stroke-secondary) p-2 eo-hover-lift eo-focus-pulse', mounted ? 'eo-card-enter' : ''),
     style: { background: TINTS[note.tint] || TINTS.classic, opacity: typeof note.opacity === 'number' ? note.opacity : 1 },
     'data-floating-no-drag': true,
     children: [
@@ -1397,21 +1403,25 @@ function StackEditor({ noteId }) {
           })
         ]
       }),
-      jsx(Textarea, {
-        value: draft,
-        placeholder: t('bodyPh'),
-        className: cn(
-          'min-h-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm shadow-none',
-          'text-(--ui-text-secondary) focus-visible:ring-0'
-        ),
-        onChange: e => {
-          setDraft(e.target.value)
-          saveBody(e.target.value)
-        },
-        onBlur: e => {
-          patchNote(noteId, { body: e.target.value })
-          maybePromoteTitle(noteId, e.target.value)
-        }
+      jsx('div', {
+        className: 'relative flex-1 min-h-0 eo-scanline eo-static-overlay',
+        'data-floating-no-drag': true,
+        children: jsx(Textarea, {
+          value: draft,
+          placeholder: t('bodyPh'),
+          className: cn(
+            'absolute inset-0 h-full w-full resize-none border-0 bg-transparent p-2 text-sm shadow-none',
+            'text-(--ui-text-secondary) focus-visible:ring-0'
+          ),
+          onChange: e => {
+            setDraft(e.target.value)
+            saveBody(e.target.value)
+          },
+          onBlur: e => {
+            patchNote(noteId, { body: e.target.value })
+            maybePromoteTitle(noteId, e.target.value)
+          }
+        })
       }),
       jsxs('div', {
         className: 'flex flex-wrap gap-1 text-[0.6rem] text-(--ui-text-quaternary)',
@@ -1643,6 +1653,13 @@ function BreakoutCard({ noteId }) {
     }
   }, [note?.id, note?.width, note?.height])
 
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(false)
+    const t = setTimeout(() => setMounted(true), 20)
+    return () => clearTimeout(t)
+  }, [noteId])
+
   if (!note) {
     return jsx('div', {
       className: 'p-3 text-xs text-(--ui-text-quaternary)',
@@ -1681,7 +1698,7 @@ function BreakoutCard({ noteId }) {
   }
 
   return jsxs('div', {
-    className: 'flex h-full min-h-0 flex-col gap-1 p-2',
+    className: cn('flex h-full min-h-0 flex-col gap-1 p-2 eo-hover-lift eo-focus-pulse', mounted ? 'eo-card-enter' : ''),
     style: {
       background: TINTS[note.tint] || TINTS.classic,
       opacity: typeof note.opacity === 'number' ? note.opacity : 1,
@@ -1739,20 +1756,24 @@ function BreakoutCard({ noteId }) {
           ]})
         ]
       }),
-      jsx(Textarea, {
-        value: draft,
-        placeholder: t('bodyPh'),
-        className: cn(
-          'min-h-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm shadow-none',
-          'text-(--ui-text-secondary) focus-visible:ring-0'
-        ),
+      jsx('div', {
+        className: 'relative flex-1 min-h-0 eo-scanline eo-static-overlay',
         'data-floating-no-drag': true,
-        onChange: e => {
-          setDraft(e.target.value)
-          clearTimeout(timer.current)
-          timer.current = setTimeout(() => save(e.target.value), 280)
-        },
-        onBlur: e => save(e.target.value)
+        children: jsx(Textarea, {
+          value: draft,
+          placeholder: t('bodyPh'),
+          className: cn(
+            'absolute inset-0 h-full w-full resize-none border-0 bg-transparent p-2 text-sm shadow-none',
+            'text-(--ui-text-secondary) focus-visible:ring-0'
+          ),
+          'data-floating-no-drag': true,
+          onChange: e => {
+            setDraft(e.target.value)
+            clearTimeout(timer.current)
+            timer.current = setTimeout(() => save(e.target.value), 280)
+          },
+          onBlur: e => save(e.target.value)
+        })
       }),
       jsx('div', {
         className: 'absolute bottom-0 right-0 h-3 w-3 cursor-se-resize',
@@ -1951,7 +1972,45 @@ export default {
       })
     }
 
-    // No docked right board — stack float is the home surface.
+    // EO broadcast-style VFX: inject once at plugin lifetime start.
+    if (typeof document !== 'undefined') {
+      const style = document.createElement('style')
+      style.textContent = `
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+@keyframes eo-glitch-in {
+  0% { clip-path: inset(40% -6px 61% 0); transform: translate(-2px,2px); filter: hue-rotate(90deg) contrast(1.4); }
+  20% { clip-path: inset(92% -4px 1% 0); transform: translate(2px,-1px); filter: hue-rotate(-40deg) saturate(1.8); }
+  40% { clip-path: inset(25% -6px 58% 0); transform: translate(-1px,1px); filter: blur(0.3px) contrast(1.2); }
+  60% { clip-path: inset(70% -6px 12% 0); transform: translate(1px,-2px); filter: hue-rotate(20deg); }
+  80% { clip-path: inset(10% -6px 80% 0); transform: translate(-2px,0); filter: blur(0.2px); }
+  100% { clip-path: inset(0 0 0 0); transform: translate(0,0); filter: none; }
+}
+@keyframes eo-scanline {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100%; }
+}
+@keyframes eo-static-drift {
+  0% { background-position: 0 0; }
+  100% { background-position: 100% 100%; }
+}
+.eo-card-enter { animation: eo-glitch-in 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+.eo-hover-lift { transition: transform 80ms ease-out, box-shadow 120ms ease-out, border-color 120ms ease-out; }
+.eo-hover-lift:hover { transform: translateY(-1px) rotate(0.5deg); box-shadow: 0 8px 24px rgba(0,0,0,0.35); border-color: rgba(255,255,255,0.12); }
+.eo-scanline::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.18; mix-blend-mode: overlay;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.35) 0px, rgba(0,0,0,0.35) 1px, transparent 1px, transparent 3px);
+  animation: eo-scanline 1.6s linear infinite;
+}
+.eo-static-overlay::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.12; mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 160px 160px; animation: eo-static-drift 3.2s steps(3) infinite;
+}
+.eo-focus-pulse:focus-within { outline: none; border-color: rgba(236,72,153,0.55); box-shadow: 0 0 0 2px rgba(236,72,153,0.18); }
+      `
+      document.head.appendChild(style)
+      lifetimeDisposers.push(() => { style.remove() })
+    }
     ctx.register({
       id: 'chip',
       area: STATUSBAR_AREAS.right,
