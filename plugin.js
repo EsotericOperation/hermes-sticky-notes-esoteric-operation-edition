@@ -152,6 +152,8 @@ function migrateNote(raw) {
     author: n.author === 'agent' ? 'agent' : 'user',
     model: typeof n.model === 'string' ? n.model : undefined,
     anchor: typeof n.anchor === 'string' ? n.anchor : undefined,
+    width: typeof n.width === 'number' ? n.width : undefined,
+    height: typeof n.height === 'number' ? n.height : undefined,
     tags: Array.isArray(n.tags) ? n.tags.slice(0,4) : extractTags(`${n.title}\n${n.body}`)
   }
 }
@@ -1081,25 +1083,24 @@ function StackCard() {
         : jsxs('div', {
             className: 'flex min-h-0 flex-1 flex-col gap-2',
             children: [
-              jsx(ScrollArea, {
-                className: 'max-h-24 shrink-0',
-                children: jsx('div', {
-                  className: 'flex flex-col gap-0.5 pr-1',
-                  'data-floating-no-drag': true,
-                  children: $viewMode.get() === 'pinboard'
-                    ? filteredNotes()
+              $viewMode.get() === 'pinboard'
+                ? jsx(ScrollArea, {
+                    className: 'flex-1',
+                    children: jsx('div', {
+                      className: 'grid grid-cols-2 gap-2 content-start',
+                      'data-floating-no-drag': true,
+                      children: filteredNotes()
                         .filter(n => n.open && sessionOk(n))
                         .sort((a, b) => b.updatedAt - a.updatedAt)
-                        .map((n, i) => {
+                        .map(n => {
                           const selected = $selectedIds.get().has(n.id)
                           return jsxs('button', {
                             type: 'button',
                             className: cn(
-                              'flex items-start gap-1 rounded px-1.5 py-1 text-left text-[0.7rem] transition-colors',
+                              'flex flex-col gap-1 rounded border border-(--ui-stroke-secondary) p-2 text-left transition-colors',
                               selected
                                 ? 'bg-(--chrome-action-hover) text-(--ui-text-secondary)'
-                                : 'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover)',
-                              selected ? 'outline outline-1 outline-(--ui-accent)' : ''
+                                : 'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover)'
                             ),
                             onClick: (e) => {
                               if (e.metaKey || e.ctrlKey) {
@@ -1112,35 +1113,35 @@ function StackCard() {
                             },
                             title: `${n.title || 'Sticky'}${selected ? ' [selected]' : ''}`,
                             children: [
-                              jsx('input', {
-                                type: 'checkbox',
-                                className: 'mt-1 h-3 w-3',
-                                checked: selected,
-                                onChange: () => {
-                                  const s = new Set($selectedIds.get())
-                                  s.has(n.id) ? s.delete(n.id) : s.add(n.id)
-                                  $selectedIds.set(s)
-                                },
-                                'data-floating-no-drag': true
-                              }),
-                              jsxs('span', {
-                                className: 'min-w-0 flex-1',
+                              jsxs('div', {
+                                className: 'flex items-center justify-between',
                                 children: [
                                   jsx('span', {
-                                    className: 'block truncate font-medium text-(--ui-text-secondary)',
-                                    children: noteTopic(n, 36)
+                                    className: 'block truncate text-[0.7rem] font-medium text-(--ui-text-secondary)',
+                                    children: noteTopic(n, 32)
                                   }),
-                                  noteSubpreview(n, 48)
-                                    ? jsx('span', {
-                                        className: 'block truncate text-[0.62rem] text-(--ui-text-quaternary)',
-                                        children: noteSubpreview(n, 48)
-                                      })
-                                    : null
+                                  jsx('input', {
+                                    type: 'checkbox',
+                                    className: 'h-3 w-3',
+                                    checked: selected,
+                                    onChange: () => {
+                                      const s = new Set($selectedIds.get())
+                                      s.has(n.id) ? s.delete(n.id) : s.add(n.id)
+                                      $selectedIds.set(s)
+                                    },
+                                    'data-floating-no-drag': true
+                                  })
                                 ]
                               }),
+                              noteSubpreview(n, 120)
+                                ? jsx('span', {
+                                    className: 'block truncate text-[0.62rem] text-(--ui-text-quaternary)',
+                                    children: noteSubpreview(n, 120)
+                                  })
+                                : null,
                               (n.tags && n.tags.length)
                                 ? jsx('span', {
-                                    className: 'shrink-0 text-[0.55rem] text-(--ui-text-quaternary)',
+                                    className: 'text-[0.55rem] text-(--ui-text-quaternary)',
                                     title: n.tags.join(', '),
                                     children: n.tags.slice(0,2).join('·') + (n.tags.length>2?'…':'')
                                   })
@@ -1148,7 +1149,15 @@ function StackCard() {
                             ]
                           })
                         })
-                    : filteredNotes()
+                  })
+                )
+              ),
+              active
+                ? jsx(StackEditor, { noteId: active.id })
+                : null
+                      className: 'flex flex-col gap-0.5 pr-1',
+                      'data-floating-no-drag': true,
+                      children: filteredNotes()
                         .filter(n => n.open && sessionOk(n))
                         .sort((a, b) => b.updatedAt - a.updatedAt)
                         .map((n, i) => {
@@ -1222,8 +1231,9 @@ function StackCard() {
                             n.id
                           )
                         })
-                })
-              }),
+                  )
+                )
+              ),
               active
                 ? jsx(StackEditor, { noteId: active.id })
                 : null
@@ -1513,10 +1523,22 @@ function BreakoutCard({ noteId }) {
   const note = notes.find(n => n.id === noteId)
   const [draft, setDraft] = useState(note?.body || '')
   const timer = useRef(null)
+  const [size, setSize] = useState({
+    width: typeof note?.width === 'number' ? note.width : 320,
+    height: typeof note?.height === 'number' ? note.height : 260
+  })
+  const resizing = useRef(false)
+  const origin = useRef({ x: 0, y: 0, w: 0, h: 0 })
 
   useEffect(() => {
-    setDraft(note?.body || '')
-  }, [note?.body, noteId])
+    if (note) {
+      setSize({
+        width: typeof note.width === 'number' ? note.width : 320,
+        height: typeof note.height === 'number' ? note.height : 260
+      })
+      setDraft(note.body || '')
+    }
+  }, [note?.id, note?.width, note?.height])
 
   if (!note) {
     return jsx('div', {
@@ -1530,10 +1552,37 @@ function BreakoutCard({ noteId }) {
     maybePromoteTitle(noteId, value)
   }
 
+  const beginResize = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    resizing.current = true
+    origin.current = { x: e.clientX, y: e.clientY, w: size.width, h: size.height }
+    const onMove = ev => {
+      if (!resizing.current) return
+      const dx = ev.clientX - origin.current.x
+      const dy = ev.clientY - origin.current.y
+      const next = {
+        width: Math.max(220, Math.round(origin.current.w + dx)),
+        height: Math.max(180, Math.round(origin.current.h + dy))
+      }
+      setSize(next)
+    }
+    const onUp = () => {
+      resizing.current = false
+      patchNote(noteId, { width: size.width, height: size.height })
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
   return jsxs('div', {
     className: 'flex h-full min-h-0 flex-col gap-1 p-2',
     style: {
-      background: TINTS[note.tint] || TINTS.classic
+      background: TINTS[note.tint] || TINTS.classic,
+      width: `${size.width}px`,
+      height: `${size.height}px`
     },
     onPointerDown: () => focusBreakout(noteId),
     children: [
@@ -1577,6 +1626,30 @@ function BreakoutCard({ noteId }) {
           timer.current = setTimeout(() => save(e.target.value), 280)
         },
         onBlur: e => save(e.target.value)
+      }),
+      jsx('div', {
+        className: 'flex items-center justify-between text-[0.55rem] text-(--ui-text-quaternary)',
+        'data-floating-no-drag': true,
+        children: [
+          jsx('span', { children: `${size.width}×${size.height}` }),
+          jsx('button', {
+            type: 'button',
+            className: 'rounded border border-(--ui-stroke-secondary) px-1 hover:text-(--ui-text-tertiary)',
+            onClick: () => {
+              patchNote(noteId, { width: 320, height: 260 })
+              setSize({ width: 320, height: 260 })
+            },
+            children: 'reset size'
+          })
+        ]
+      }),
+      jsx('div', {
+        className: 'absolute bottom-0 right-0 h-3 w-3 cursor-se-resize',
+        style: {
+          background: 'linear-gradient(135deg, transparent 50%, color-mix(in srgb, var(--ui-text-quaternary) 30%, transparent) 50%)'
+        },
+        onPointerDown: beginResize,
+        'data-floating-no-drag': true
       })
     ]
   })
