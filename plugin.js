@@ -1054,6 +1054,22 @@ function StackCard() {
             variant: 'ghost',
             onClick: () => {
               try {
+                const fs = require('fs')
+                const path = require('path').join(require('os').homedir(), 'Desktop', 'eo-stickies-timeline.md')
+                const text = timelineText()
+                fs.writeFileSync(path, text, 'utf-8')
+                console.log('timeline exported to', path)
+              } catch (exc) {
+                console.error('timeline export failed', exc)
+              }
+            },
+            children: 'Timeline'
+          }),
+          jsx(Button, {
+            size: 'xs',
+            variant: 'ghost',
+            onClick: () => {
+              try {
                 const data = pluginCtx.storage.get('eo-stickies:notes', [])
                 const path = String(require('path').join(require('os').homedir(), '.hermes/scripts/eo-stickies/notes.json'))
                 require('fs').writeFileSync(path, JSON.stringify(data, null, 2))
