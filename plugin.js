@@ -1980,6 +1980,7 @@ export default {
           keywords: ['sticky', 'filter', 'tag'],
           run: () => {
             const current = $tagFilter.get() || ''
+            if (current) { $tagFilter.set(null); return }
             const next = prompt('Filter tags:', current) ?? null
             $tagFilter.set(next || null)
           }
