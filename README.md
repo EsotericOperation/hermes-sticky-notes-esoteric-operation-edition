@@ -4,7 +4,7 @@ Fork of [VGFreakXBL/hermes-sticky-notes](https://github.com/VGFreakXBL/hermes-st
 
 In-Desktop sticky / post-it notes for **[Hermes Desktop](https://hermes-agent.nousresearch.com/)**, built as a single disk plugin (no app fork, no build step).
 
-One **stack** on the glass. **Break out** notes when they need ambient space. **Drag floats together** to pile them. **Stack all** when the desk gets loud.
+One **stack** on the glass. **Break out** notes when they need ambient space. **Drag floats together** to pile them. **Stack all** when the desk gets loud. **Grid view** for scanable overview. **Tag filter chips** for instant filtering. **Resize** any breakout note by its corner.
 
 ## What's new in this fork
 
@@ -13,8 +13,12 @@ One **stack** on the glass. **Break out** notes when they need ambient space. **
 - **Auto-tagging**: notes are tagged on creation/migration by EO keyword rules (`broadcast`, `ritual`, `ops`, `audio`, `agent`, `divination`, `vibe`, `todo`)
 - **Auto-tint**: content-aware tint selection based on keyword rules
 - **Timeline view**: chronological note history with tags, available via palette, keybind (`mod+shift+t`), or `/sticky timeline`
-- **Tag rendering**: tags show inline in stack rows
-- **Chat commands**: `/sticky create [--tint NAME] <text>`, `/sticky list`, `/sticky search <query>`, `/sticky dump`, `/sticky tags`, `/sticky purge <id>`, `/sticky clear`
+- **Pinboard / Grid view**: 2-column masonry-style grid toggle from stack header or `⌘⇧G`
+- **Tag filter chips**: clickable tag chips appear under the header when tags exist; click to filter, click again to clear
+- **Multi-select + bulk purge**: `⌘+click` / `Ctrl+click` any note to select; purge selected from header or `/sticky purge <id>`
+- **Breakout resize**: drag bottom-right corner of any breakout note; size persists per note with reset button
+- **Export**: `/sticky export` writes plugin storage to `~/.hermes/scripts/eo-stickies/notes.json`
+- **Chat commands**: full suite including create/list/search/dump/tags/pinboard/filter/export/purge/clear/tag/untag/surface
 - **Local mirror**: notes also written to `~/.hermes/scripts/eo-stickies/notes.json` for CLI/agent access
 - **Renamed palette/keybind categories**: everything lives under `EO Stickies`
 
@@ -59,12 +63,18 @@ Notes persist in plugin-scoped storage (`ctx.storage`), profile-aware. No real f
 
 From any Hermes chat surface:
 
-```
+```text
 /sticky create [--tint NAME] <text>
 /sticky list
 /sticky search <query>
 /sticky dump
 /sticky tags
+/sticky pinboard [--tag <tag>]
+/sticky filter <tag>
+/sticky tag <id> <tag>
+/sticky untag <id> <tag>
+/sticky surface <id> stack|breakout
+/sticky export
 /sticky purge <id>
 /sticky clear
 ```
