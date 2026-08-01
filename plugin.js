@@ -1040,6 +1040,30 @@ function StackCard() {
             onClick: () => $viewMode.set($viewMode.get() === 'stack' ? 'pinboard' : 'stack'),
             children: $viewMode.get() === 'stack' ? 'Grid' : 'Stack'
           }),
+          jsx(Button, {
+            size: 'xs',
+            variant: 'ghost',
+            onClick: () => {
+              const input = document.querySelector('[data-floating-no-drag] input[placeholder="tag filter"]')
+              if (input) input.focus()
+            },
+            children: 'Filter'
+          }),
+          jsx(Button, {
+            size: 'xs',
+            variant: 'ghost',
+            onClick: () => {
+              try {
+                const data = pluginCtx.storage.get('eo-stickies:notes', [])
+                const path = String(require('path').join(require('os').homedir(), '.hermes/scripts/eo-stickies/notes.json'))
+                require('fs').writeFileSync(path, JSON.stringify(data, null, 2))
+                console.log('eo-stickies exported to', path)
+              } catch (exc) {
+                console.error('export failed', exc)
+              }
+            },
+            children: 'Export'
+          }),
           jsx('input', {
             className: 'w-24 border-0 bg-transparent text-[0.65rem] text-(--ui-text-secondary) placeholder:text-(--ui-text-quaternary) outline-none',
             placeholder: 'tag filter',
@@ -1958,6 +1982,30 @@ export default {
             const current = $tagFilter.get() || ''
             const next = prompt('Filter tags:', current) ?? null
             $tagFilter.set(next || null)
+          }
+        }
+      },
+      {
+        id: 'cmd-totals',
+        area: PALETTE_AREA,
+        data: {
+          id: 'eo-stickies.totals',
+          label: 'Sticky: Tints/surfaces/tags totals',
+          keywords: ['sticky', 'totals', 'stats', 'counts'],
+          run: () => {
+            const notes = pluginCtx.storage.get(STORAGE_KEY, [])
+            const by_tint = {}
+            const by_surface = {}
+            const tag_counts = {}
+            for (const n of notes) {
+              by_tint[n.get('tint') || '(none)'] = (by_tint[n.get('tint') || '(none)'] || 0) + 1
+              by_surface[n.get('surface') || '(none)'] = (by_surface[n.get('surface') || '(none)'] || 0) + 1
+              for (const t of (n.get('tags') || [])) tag_counts[t] = (tag_counts[t] || 0) + 1
+            }
+            const fmt = (m) => Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}`).join('\n')
+            host.notify({ kind: 'info', title: 'Tints', message: fmt(by_tint) })
+            host.notify({ kind: 'info', title: 'Surfaces', message: fmt(by_surface) })
+            host.notify({ kind: 'info', title: 'Tags', message: Object.entries(tag_counts).sort((a,b)=>b[1]-a[1]).slice(0,20).map(([k,v])=>`#${k}: ${v}`).join('\n') || '(none)' })
           }
         }
       },
