@@ -41,6 +41,12 @@ ghost: 'transparent',
 void: 'color-mix(in srgb, #0B0C15 60%, transparent)',
 relic: 'color-mix(in srgb, #EC4899 18%, transparent)',
 gilt: 'color-mix(in srgb, #A855F7 18%, transparent)',
+blood: 'color-mix(in srgb, #DC2626 22%, transparent)',
+signal: 'color-mix(in srgb, #22C55E 18%, transparent)',
+amber: 'color-mix(in srgb, #F59E0B 20%, transparent)',
+broadcast: 'color-mix(in srgb, #3B82F6 18%, transparent)',
+rose: 'color-mix(in srgb, #F43F5E 18%, transparent)',
+static: 'color-mix(in srgb, #E5E7EB 14%, transparent)',
 }
 
 /**
@@ -66,7 +72,8 @@ gilt: 'color-mix(in srgb, #A855F7 18%, transparent)',
  *   author: 'user' | 'agent',
  *   model?: string,
  *   anchor?: string,
- *   tags?: string[]
+ *   tags?: string[],
+ *   opacity?: number
  * }} StickyNote
  */
 
@@ -136,7 +143,7 @@ function migrateNote(raw) {
     id: String(n.id || uid()),
     title: String(n.title || 'Sticky'),
     body: String(n.body || ''),
-    tint: ['classic','soft','ghost','void','relic','gilt'].includes(n.tint) ? n.tint : 'classic',
+    tint: ['classic','soft','ghost','void','relic','gilt','blood','signal','amber','broadcast','rose','static'].includes(n.tint) ? n.tint : 'classic',
     rotation: typeof n.rotation === 'number' ? n.rotation : 0,
     open: n.open !== false,
     surface,
@@ -154,7 +161,8 @@ function migrateNote(raw) {
     anchor: typeof n.anchor === 'string' ? n.anchor : undefined,
     width: typeof n.width === 'number' ? n.width : undefined,
     height: typeof n.height === 'number' ? n.height : undefined,
-    tags: Array.isArray(n.tags) ? n.tags.slice(0,4) : extractTags(`${n.title}\n${n.body}`)
+    tags: Array.isArray(n.tags) ? n.tags.slice(0,4) : extractTags(`${n.title}\n${n.body}`),
+    opacity: typeof n.opacity === 'number' ? Math.min(1, Math.max(0.05, n.opacity)) : 1
   }
 }
 
@@ -1358,7 +1366,7 @@ function StackEditor({ noteId }) {
 
   return jsxs('div', {
     className: 'flex min-h-0 flex-1 flex-col gap-1.5 rounded-md border border-(--ui-stroke-secondary) p-2',
-    style: { background: TINTS[note.tint] || TINTS.classic },
+    style: { background: TINTS[note.tint] || TINTS.classic, opacity: typeof note.opacity === 'number' ? note.opacity : 1 },
     'data-floating-no-drag': true,
     children: [
       jsxs('div', {
@@ -1412,7 +1420,7 @@ function StackEditor({ noteId }) {
             type: 'button',
             className: 'hover:text-(--ui-text-tertiary)',
             onClick: () => {
-              const keys = /** @type {Array<'classic' | 'soft' | 'ghost' | 'void' | 'relic' | 'gilt'>} */ (Object.keys(TINTS))
+              const keys = /** @type {Array<string>} */ (Object.keys(TINTS))
               const i = keys.indexOf(note.tint)
               patchNote(noteId, { tint: keys[(i + 1) % keys.length] })
             },
@@ -1427,6 +1435,24 @@ function StackEditor({ noteId }) {
               patchNote(noteId, { sessionId: linking ? sid : null })
             },
             children: note.sessionId ? 'session' : 'global'
+          }),
+          jsx('button', {
+            type: 'button',
+            className: 'hover:text-(--ui-text-tertiary)',
+            onClick: () => {
+              const next = typeof note.opacity === 'number' ? +(note.opacity - 0.1).toFixed(1) : 0.9
+              patchNote(noteId, { opacity: Math.max(0.05, next) })
+            },
+            children: 'opacity-'
+          }),
+          jsx('button', {
+            type: 'button',
+            className: 'hover:text-(--ui-text-tertiary)',
+            onClick: () => {
+              const next = typeof note.opacity === 'number' ? +(note.opacity + 0.1).toFixed(1) : 1.1
+              patchNote(noteId, { opacity: Math.min(1, next) })
+            },
+            children: 'opacity+'
           }),
           ...(note.tags || []).map(tag =>
             jsxs('button', {
@@ -1658,35 +1684,59 @@ function BreakoutCard({ noteId }) {
     className: 'flex h-full min-h-0 flex-col gap-1 p-2',
     style: {
       background: TINTS[note.tint] || TINTS.classic,
+      opacity: typeof note.opacity === 'number' ? note.opacity : 1,
       width: `${size.width}px`,
       height: `${size.height}px`
     },
     onPointerDown: () => focusBreakout(noteId),
     children: [
       jsxs('div', {
-        className: 'flex items-center justify-end gap-0.5',
+        className: 'flex items-center justify-between text-[0.55rem] text-(--ui-text-quaternary)',
         'data-floating-no-drag': true,
         children: [
-          jsx(Tip, {
-            label: t('returnStack'),
-            children: jsx('button', {
+          jsxs('span', { children: ['opacity ', typeof note.opacity === 'number' ? note.opacity.toFixed(1) : '1.0'] }),
+          jsxs('span', { children: [
+            jsx('button', {
               type: 'button',
-              className:
-                'rounded px-1.5 py-0.5 text-[0.65rem] text-(--ui-text-quaternary) hover:bg-(--chrome-action-hover) hover:text-(--ui-text-secondary)',
-              onClick: () => returnToStack(noteId),
-              children: '↙ stack'
-            })
-          }),
-          jsx(Tip, {
-            label: t('delete'),
-            children: jsx('button', {
+              className: 'rounded border border-(--ui-stroke-secondary) px-1 hover:text-(--ui-text-tertiary)',
+              onClick: () => patchNote(noteId, { opacity: Math.max(0.05, +(typeof note.opacity === 'number' ? note.opacity - 0.1 : 0.9).toFixed(1)) }),
+              children: '−'
+            }),
+            jsx('button', {
               type: 'button',
-              className:
-                'rounded px-1.5 py-0.5 text-[0.65rem] text-(--ui-text-quaternary) hover:bg-(--chrome-action-hover) hover:text-(--ui-text-secondary)',
-              onClick: () => removeNote(noteId),
-              children: '×'
+              className: 'rounded border border-(--ui-stroke-secondary) px-1 hover:text-(--ui-text-tertiary)',
+              onClick: () => patchNote(noteId, { opacity: Math.min(1, +(typeof note.opacity === 'number' ? note.opacity + 0.1 : 1.1).toFixed(1)) }),
+              children: '+'
+            }),
+            `${size.width}×${size.height}`,
+            jsx('button', {
+              type: 'button',
+              className: 'rounded border border-(--ui-stroke-secondary) px-1 hover:text-(--ui-text-tertiary)',
+              onClick: () => {
+                patchNote(noteId, { width: 320, height: 260 })
+                setSize({ width: 320, height: 260 })
+              },
+              children: 'reset size'
+            }),
+            jsx(Tip, {
+              label: t('returnStack'),
+              children: jsx('button', {
+                type: 'button',
+                className: 'rounded border border-(--ui-stroke-secondary) px-1 hover:text-(--ui-text-tertiary)',
+                onClick: () => returnToStack(noteId),
+                children: '↙'
+              })
+            }),
+            jsx(Tip, {
+              label: t('delete'),
+              children: jsx('button', {
+                type: 'button',
+                className: 'rounded border border-(--ui-stroke-secondary) px-1 hover:text-(--ui-text-tertiary)',
+                onClick: () => removeNote(noteId),
+                children: '×'
+              })
             })
-          })
+          ]})
         ]
       }),
       jsx(Textarea, {
@@ -1694,7 +1744,7 @@ function BreakoutCard({ noteId }) {
         placeholder: t('bodyPh'),
         className: cn(
           'min-h-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm shadow-none',
-          'text-(--ui-text-secondary) placeholder:text-(--ui-text-quaternary) focus-visible:ring-0'
+          'text-(--ui-text-secondary) focus-visible:ring-0'
         ),
         'data-floating-no-drag': true,
         onChange: e => {
@@ -1703,22 +1753,6 @@ function BreakoutCard({ noteId }) {
           timer.current = setTimeout(() => save(e.target.value), 280)
         },
         onBlur: e => save(e.target.value)
-      }),
-      jsx('div', {
-        className: 'flex items-center justify-between text-[0.55rem] text-(--ui-text-quaternary)',
-        'data-floating-no-drag': true,
-        children: [
-          jsx('span', { children: `${size.width}×${size.height}` }),
-          jsx('button', {
-            type: 'button',
-            className: 'rounded border border-(--ui-stroke-secondary) px-1 hover:text-(--ui-text-tertiary)',
-            onClick: () => {
-              patchNote(noteId, { width: 320, height: 260 })
-              setSize({ width: 320, height: 260 })
-            },
-            children: 'reset size'
-          })
-        ]
       }),
       jsx('div', {
         className: 'absolute bottom-0 right-0 h-3 w-3 cursor-se-resize',
