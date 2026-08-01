@@ -2049,6 +2049,40 @@ export default {
         }
       },
       {
+        id: 'cmd-timeline-export',
+        area: PALETTE_AREA,
+        data: {
+          id: 'eo-stickies.timeline-export',
+          label: 'Sticky: Export timeline markdown',
+          keywords: ['sticky', 'timeline', 'export', 'md'],
+          run: () => {
+            try {
+              const fs = require('fs')
+              const path = require('path').join(require('os').homedir(), 'Desktop', 'eo-stickies-timeline.md')
+              fs.writeFileSync(path, timelineText(), 'utf-8')
+              host.notify({ kind: 'info', title: 'Timeline export', message: `Exported to ${path}` })
+            } catch (e) {
+              host.notify({ kind: 'error', title: 'Timeline export', message: String(e) })
+            }
+          }
+        }
+      },
+      {
+        id: 'cmd-pinboard-tag',
+        area: PALETTE_AREA,
+        data: {
+          id: 'eo-stickies.pinboard-tag',
+          label: 'Sticky: Pinboard by tag',
+          keywords: ['sticky', 'pinboard', 'grid', 'tag', 'filter'],
+          run: () => {
+            const current = $tagFilter.get() || ''
+            const next = prompt('Pinboard tag filter:', current) ?? null
+            $tagFilter.set(next)
+            if (next) $viewMode.set('pinboard')
+          }
+        }
+      },
+      {
         id: 'key-new',
         area: KEYBINDS_AREA,
         data: {
@@ -2079,6 +2113,42 @@ export default {
           category: 'EO Stickies',
           defaults: ['mod+shift+t'],
           run: () => host.notify({ kind: 'info', title: 'Timeline', message: timelineText().slice(0,900) })
+        }
+      },
+      {
+        id: 'key-timeline-export',
+        area: KEYBINDS_AREA,
+        data: {
+          id: 'eo-stickies.timeline-export',
+          label: 'Export timeline markdown',
+          category: 'EO Stickies',
+          defaults: ['mod+shift+y'],
+          run: () => {
+            try {
+              const fs = require('fs')
+              const path = require('path').join(require('os').homedir(), 'Desktop', 'eo-stickies-timeline.md')
+              fs.writeFileSync(path, timelineText(), 'utf-8')
+              host.notify({ kind: 'info', title: 'Timeline export', message: `Exported to ${path}` })
+            } catch (e) {
+              host.notify({ kind: 'error', title: 'Timeline export', message: String(e) })
+            }
+          }
+        }
+      },
+      {
+        id: 'key-pinboard-tag',
+        area: KEYBINDS_AREA,
+        data: {
+          id: 'eo-stickies.pinboard-tag',
+          label: 'Pinboard by tag',
+          category: 'EO Stickies',
+          defaults: ['mod+shift+p'],
+          run: () => {
+            const current = $tagFilter.get() || ''
+            const next = prompt('Pinboard tag filter:', current) ?? null
+            $tagFilter.set(next)
+            if (next) $viewMode.set('pinboard')
+          }
         }
       },
       {
