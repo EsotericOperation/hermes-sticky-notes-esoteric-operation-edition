@@ -1070,6 +1070,44 @@ function StackCard() {
             : null
         ]
       }),
+      (($tagFilter.get() || '') && $notes.get().some(n => (n.tags || []).length))
+        ? jsx('div', {
+            className: 'flex flex-wrap gap-1',
+            'data-floating-no-drag': true,
+            children: [...new Set($notes.get().flatMap(n => n.tags || []))]
+              .sort()
+              .map(tag =>
+                jsxs('button', {
+                  type: 'button',
+                  className: cn(
+                    'rounded border px-1 text-[0.55rem] transition-colors',
+                    'border-(--ui-stroke-secondary) text-(--ui-text-quaternary)',
+                    'hover:text-(--ui-text-tertiary)',
+                    ($tagFilter.get() || '').toLowerCase() === tag.toLowerCase()
+                      ? 'bg-(--chrome-action-hover) text-(--ui-text-secondary)'
+                      : ''
+                  ),
+                  onClick: () =>
+                    $tagFilter.set(
+                      ($tagFilter.get() || '').toLowerCase() === tag.toLowerCase()
+                        ? null
+                        : tag
+                    ),
+                  title: `filter #${tag}`,
+                  children: [
+                    '#',
+                    tag,
+                    ($tagFilter.get() || '').toLowerCase() === tag.toLowerCase()
+                      ? jsx('span', {
+                          className: 'ml-0.5 text-(--ui-text-quaternary)',
+                          children: '×'
+                        })
+                      : null
+                  ]
+                })
+              )
+          })
+        : null,
 
       stacked.length === 0
         ? jsx('div', {
